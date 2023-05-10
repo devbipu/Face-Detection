@@ -9,28 +9,35 @@ Promise.all([
 
 
 function startWebcam() {
-	navigator.mediaDevices.getDisplayMedia({'video': true, audio: false}).then((stream)=> {
-	  console.log(stream)
-	}).catch((err) => {
-		console.error(err);
-	})
+	navigator.mediaDevices
+    .getUserMedia({
+      video: true,
+      audio: false,
+    })
+    .then((stream) => {
+      video.srcObject = stream;
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 }
 
 
 
 function getLabeledFaceDescriptions() {
-  const labels = ["bipu", "messi"];
+  const labels = ["bipu", "messi", "naimur"]; //static user names as image dir
   return Promise.all(
     labels.map(async (label) => {
       const descriptions = [];
       for (let i = 1; i <= 2; i++) {
-        const img = await faceapi.fetchImage(`./users/${label}/${i}.png`);
+        const img = await faceapi.fetchImage(`./assets/users/${label}/${i}.png`);
         const detections = await faceapi
           .detectSingleFace(img)
           .withFaceLandmarks()
           .withFaceDescriptor();
         descriptions.push(detections.descriptor);
       }
+      // console.log(descriptions);
       return new faceapi.LabeledFaceDescriptors(label, descriptions);
     })
   );
@@ -62,6 +69,7 @@ video.addEventListener("play", async () => {
       return faceMatcher.findBestMatch(d.descriptor);
     });
     results.forEach((result, i) => {
+      // console.log(result)
       const box = resizedDetections[i].detection.box;
       const drawBox = new faceapi.draw.DrawBox(box, {
         label: result,
