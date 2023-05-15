@@ -1,5 +1,5 @@
 const video = document.getElementById('video');
-
+axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 Promise.all([
   faceapi.nets.ssdMobilenetv1.loadFromUri("/models"),
@@ -9,46 +9,63 @@ Promise.all([
 
 
 function startWebcam() {
-	// navigator.mediaDevices
-  //   .getUserMedia({
-  //     video: true,
-  //     audio: false,
-  //   })
-  //   .then((stream) => {
-  //     video.srcObject = stream;
-  //   })
-  //   .catch((error) => {
-  //     console.error(error);
-  //   });
-  video.src = "./assets/video/vdemo.mp4"
-    video.addEventListener('loadedmetadata', function() {
-    this.currentTime = 50;
-  }, false);
-}
-
-
-
-function getLabeledFaceDescriptions() {
-  // const labels = ["bipu", "messi", "naimur", "amy", "bernadette", "howard", "leonard", "penny", "raj", "sheldon", "stuart"]; //static user names as image dir
-  const labels = ["bipu", "messi", "naimur"]; //static user names as image dir
-  return Promise.all(
-    labels.map(async (label) => {
-      const descriptions = [];
-      for (let i = 1; i <= 2; i++) {
-        const img = await faceapi.fetchImage(`./assets/users/${label}/${label}${i}.png`);
-        const detections = await faceapi
-          .detectSingleFace(img)
-          .withFaceLandmarks()
-          .withFaceDescriptor();
-        descriptions.push(detections.descriptor);
-      }
-      // console.log(descriptions);
-      return new faceapi.LabeledFaceDescriptors(label, descriptions,);
+	navigator.mediaDevices
+    .getUserMedia({
+      video: true,
+      audio: false,
     })
-  );
+    .then((stream) => {
+      video.srcObject = stream;
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 }
 
 
+
+async function getLabeledFaceDescriptions() {
+  const labels = ["bipu", "messi", "naimur"]; //static user names as image dir
+  axios.defaults.headers.common['Access-Control-Allow-Origin'] = '*';
+	const all_images = await axios({
+		method: 'get',
+		url: 'http://127.0.0.1:8000/api/get-users',
+		withCredentials: false,
+		}).then((res) => {
+			return res.data
+		}).catch((er) => {
+			console.log(er);
+		})
+		
+		
+		const temp_images = [
+			{
+				"id": 1,
+				"image": [
+					"https://avatars.githubusercontent.com/u/61359218",
+					"https://avatars.githubusercontent.com/u/61359218",
+				]
+			}
+		]
+		return Promise.all(
+		all_images.map(async (label) => {
+		  const descriptions = [];
+		  for (let i = 0; i < label.image.length; i++) {
+			const img = await faceapi.fetchImage(label.image[i]);
+			const detections = await faceapi
+			  .detectSingleFace(img)
+			  .withFaceLandmarks()
+			  .withFaceDescriptor();
+			descriptions.push(detections.descriptor);
+		  }
+		  return new faceapi.LabeledFaceDescriptors(label.id.toString(), descriptions);
+		})
+	);
+}
+
+
+
+let startInterVal;
 var users = new Set();
 video.addEventListener("play", async () => {
   const labeledFaceDescriptors = await getLabeledFaceDescriptions();
@@ -83,7 +100,7 @@ video.addEventListener("play", async () => {
       drawBox.draw(canvas);
     });
   }
-  setInterval(matchFaces, 100)
+  startInterVal = setInterval(matchFaces, 100)
 });
 
 var olduser = 0;
@@ -92,5 +109,6 @@ setInterval( () => {
   if (users.size != olduser) {
     olduser = users.size
     console.log(users)
+    // clearInterval(startInterVal)
   }
 }, 1000)
